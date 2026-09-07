@@ -53,6 +53,6 @@ const chatSchema = new mongoose.Schema(
 
 chatSchema.index({ user: 1, updatedAt: -1 });
 
-const Chat = mongoose.models.Chat || mongoose.model("Chat", chatSchema);
+const chatModel = mongoose.models.Chat || mongoose.model("Chat", chatSchema);
 
-export default Chat;
+export default chatModel;
