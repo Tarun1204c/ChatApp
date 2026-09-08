@@ -1,4 +1,4 @@
-import userModel from "../models/user.model";
+import userModel from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 
 
@@ -17,5 +17,7 @@ export async function register(req,res){
             err: "User already exists"
         })
     }
+
+    const user = await userModel.create({usernam, email, password});
 
 }
