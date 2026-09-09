@@ -1,7 +1,7 @@
-import { body } from "express-validator";
+import { body, validationResult } from "express-validator";
 
 
-export function validate(req, res, nex){
+export function validate(req, res, next){
     const errors = validationResult(req);
     if(!errors.isEmpty()){
         return res.status(400).json({erros: errors.array() });
@@ -10,7 +10,7 @@ export function validate(req, res, nex){
 }
 
 export const registerValidator = [
-  body("name")
+  body("username")
     .trim()
     .notEmpty()
     .withMessage("Username is required")
