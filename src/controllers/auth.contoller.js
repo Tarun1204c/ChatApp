@@ -21,13 +21,21 @@ export async function register(req,res){
 
     const user = await userModel.create({username, email, password});
 
+    const emailVerificationToken = jwt.sign({
+        email: user.email,
+
+    }, process.env.JWT_SECRET)
+
     await sendEmail({
         to: email,
         subject: " Welcome to ChatApp!",
         html: 
-                `<p>Hi ${username},</p>
-                <p>Thankyou for registering at <strong>ChatApp</strong>, we're excited to have you on board!
-                <p>Best regards,<br>The ChatApp Team</p>`,
+            `<p>Hi ${username},</p>
+            <p>Thankyou for registering at <strong>ChatApp</strong>, we're excited to have you on board!
+            <p>Please verify your email address by clicking the link below:</p>
+            <a href="http://localhost:3000/api/auth-verify-email?token=${emailVerificationToken}">Verify Email</a>
+            <p>If you did not create an account, please ignore this email.</p>
+            <p>Best regards,<br>The ChatApp Team</p>`,
     })
 
     res.status(201).json({
