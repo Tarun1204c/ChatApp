@@ -79,4 +79,4 @@ export async function verifyEmail(req, res ){
         <a href="http://localhost:3000/login">Go to Login</a>
     `
     res.send(html);
-}
+}    
