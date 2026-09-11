@@ -59,7 +59,7 @@ export async function login(req, res){
     const user = await userModel.findOne({email})
 
 
-    if(!user.verified){
+    if(!user){
         return res.status(400).json({
             message:"Please verify your email before loggin",
             success: false,
@@ -80,11 +80,32 @@ export async function login(req, res){
         mesaage: "Logedin successfully",
         success: true,
         user:{
-            id: user_id,
+            id: user._id,
             username: user.username,
             email: user.email
         }        
 
+    })
+
+}
+
+export async function getMe(req, res){
+    const userId = req.user.id;
+
+    const user = userModel.findById(userId).select("-password")
+
+    if(!user) {
+        return res.status(404).json({
+            message: "User not found",
+            success: false,
+            err: "User not Found"
+        })
+    }
+
+    res.status(200).json({
+        message: 'User details fetched successfully',
+        success: true,
+        user
     })
 
 }
@@ -108,7 +129,7 @@ export async function verifyEmail(req, res ){
         })
     }
 
-    user.verified = true;
+    user.isVerified = true;
 
     await user.save();
 
