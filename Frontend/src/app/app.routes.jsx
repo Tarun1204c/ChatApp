@@ -2,6 +2,8 @@ import { createBrowserRouter } from 'react-router'
 import { Link } from 'react-router'
 import Login from '../features/auth/pages/Login'
 import Register from '../features/auth/pages/Register'
+import Dashboard from '../features/chat/pages/dashboard'
+import Protected from '../features/auth/components/Protected'
 
 const RouteError = () => (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-center text-slate-100">
@@ -26,22 +28,26 @@ const NotFound = () => (
 
 export const router = createBrowserRouter([
     {
-        path: "/",
+        path: '/',
+        element: (
+            <Protected>
+                <Dashboard />
+            </Protected>
+        ),
+        errorElement: <RouteError />,
+    },
+    {
+        path: '/login',
         element: <Login />,
         errorElement: <RouteError />,
     },
     {
-        path: "/login",
-        element: <Login />,
-        errorElement: <RouteError />,
-    },
-    {
-        path: "/register",
+        path: '/register',
         element: <Register />,
         errorElement: <RouteError />,
     },
     {
-        path: "*",
+        path: '*',
         element: <NotFound />,
     },
 ])
