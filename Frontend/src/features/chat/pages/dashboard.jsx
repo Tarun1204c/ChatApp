@@ -1,4 +1,8 @@
+import React, {useEffect} from 'react'
 import { useSelector } from 'react-redux'
+import { useChat } from "../hooks/useChat";
+
+
 
 const getDisplayName = (user) => {
     if (user?.name) {
@@ -17,7 +21,13 @@ const getDisplayName = (user) => {
 }
 
 const Dashboard = () => {
+    const Chat = useChat()
+
     const user = useSelector((state) => state.auth.user)
+
+    useEffect(() => {
+        Chat.initializeSocketConnection()
+    }, [])
 
     return (
         <main className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-pink-100 px-6 py-10 text-slate-800">
