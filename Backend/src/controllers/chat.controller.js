@@ -94,5 +94,42 @@ export async function sendMessage(req, res) {
     }
 }
 
+export async function getChats(req, res) {
+    const user = req.user;
+
+    const chats = await chatModel.find({ user: user.id }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+        message: "Chats retrieved successfully",
+        success: true,
+        chats,
+    });
+}
+
+export async function getMessages(req, res) {
+    const { chatId } = req.params;
+
+    const chat = await chatModel.findOne({
+        _id: chatId,
+        user: req.user.id,
+        status: "active",
+    });
+
+    if (!chat) {
+        return res.status(404).json({
+            message: "Chat not found",
+            success: false,
+        });
+    }
+
+    const messages = await messageModel.find({ chat: chatId }).sort({ createdAt: 1 });
+
+    return res.status(200).json({
+        message: "Messages retrieved successfully",
+        success: true,
+        chat,
+        messages,
+    });
+}
 
 
