@@ -105,11 +105,22 @@ export async function* generateResponse(messages) {
         new SystemMessage(systemPrompt),
 
         // Previous conversation
-        ...messages.map((message) => (
-            message.role === "user"
-                ? new HumanMessage(message.content)
-                : new AIMessage(message.content)
-        ))
+        ...messages.map((message) => {
+            if (message.role !== "user") {
+                return new AIMessage(message.content);
+            }
+
+            if (message.image) {
+                return new HumanMessage({
+                    content: [
+                        { type: "text", text: message.content },
+                        { type: "image", url: message.image }
+                    ]
+                });
+            }
+
+            return new HumanMessage(message.content);
+        })
     ];
 
 

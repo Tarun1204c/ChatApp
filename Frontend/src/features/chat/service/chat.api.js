@@ -5,7 +5,7 @@ const api = axios.create({
     withCredentials: true,
 })
 
-export const sendMessage = async ({ message, chatId, onToken }) => {
+export const sendMessage = async ({ message, chatId, image, onToken }) => {
     const response = await fetch(
         `${api.defaults.baseURL}/api/chats/message`,
         {
@@ -17,6 +17,7 @@ export const sendMessage = async ({ message, chatId, onToken }) => {
             body: JSON.stringify({
                 message,
                 chat: chatId,
+                image,
             }),
         }
     )

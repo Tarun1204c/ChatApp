@@ -3,9 +3,20 @@ import chatModel from "../models/chat.model.js";
 import messageModel from "../models/message.model.js";
 
 export async function sendMessage(req, res) {
-    const { message, chat: chatId } = req.body;
+    const { message, chat: chatId, image } = req.body;
 
     try {
+
+        if (
+            image &&
+            (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image) ||
+                image.length > 5_600_000)
+        ) {
+            return res.status(400).json({
+                message: "Upload a PNG, JPEG, or WebP image up to 4 MB",
+                success: false
+            });
+        }
 
         let title = null, chat;
 
@@ -51,7 +62,8 @@ export async function sendMessage(req, res) {
             : [];
         messages.push({
             role: "user",
-            content: message
+            content: message,
+            image
         });
 
 
@@ -66,7 +78,8 @@ export async function sendMessage(req, res) {
             await messageModel.create({
                 chat: chat._id,
                 content: message,
-                role: "user"
+                role: "user",
+                image: image || ""
             });
 
             aiMessage = await messageModel.create({
