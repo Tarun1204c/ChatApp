@@ -9,13 +9,20 @@ export async function sendMessage(req, res) {
 
         let title = null, chat;
 
-        if(!chatId){
+        if (!chatId && req.user) {
             title = await generateChatTitle(message);
             chat = await chatModel.create({
                 user: req.user.id,
                 title
             });
-        } else {
+        } else if (chatId) {
+            if (!req.user) {
+                return res.status(401).json({
+                    message: "Please login to continue this conversation",
+                    success: false
+                });
+            }
+
             chat = await chatModel.findOne({
                 _id: chatId,
                 user: req.user.id,
@@ -37,9 +44,11 @@ export async function sendMessage(req, res) {
         res.flushHeaders();
 
         let result = "";
-        const messages = await messageModel
-            .find({ chat: chat._id })
-            .sort({ createdAt: 1 });
+        const messages = chat
+            ? await messageModel
+                .find({ chat: chat._id })
+                .sort({ createdAt: 1 })
+            : [];
         messages.push({
             role: "user",
             content: message
@@ -51,18 +60,21 @@ export async function sendMessage(req, res) {
             res.write(`event: token\ndata: ${JSON.stringify(token)}\n\n`);
         }
 
-        const userMessage = await messageModel.create({
-            chat: chat._id,
-            content: message,
-            role: "user"
+        let aiMessage = null;
 
-        })
+        if (chat) {
+            await messageModel.create({
+                chat: chat._id,
+                content: message,
+                role: "user"
+            });
 
-        const aiMessage = await messageModel.create({
-            chat: chat._id,
-            content: result,
-            role: "ai"
-        });
+            aiMessage = await messageModel.create({
+                chat: chat._id,
+                content: result,
+                role: "ai"
+            });
+        }
 
         res.write(`event: done\ndata: ${JSON.stringify({ title, chat, aiMessage })}\n\n`);
         res.end();

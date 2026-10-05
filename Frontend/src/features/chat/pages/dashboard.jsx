@@ -29,10 +29,15 @@ const getDisplayName = (user) => {
 }
 
 const sidebarItems = [
-    { label: 'Search', icon: '⌕' },
     { label: 'Convo', icon: '◌' },
     { label: 'Library', icon: '▣' },
     { label: 'Images', icon: '◍' },
+]
+
+const suggestedPrompts = [
+    'Explain a difficult topic simply',
+    'Help me write a professional email',
+    'Suggest a fun weekend project',
 ]
 
 const Dashboard = () => {
@@ -44,6 +49,8 @@ const Dashboard = () => {
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [message, setMessage] = useState('')
+    const [selectedImage, setSelectedImage] = useState(null)
+    const [chatSearch, setChatSearch] = useState('')
     const [chats, setChats] = useState([])
     const [currentChatId, setCurrentChatId] = useState(null)
     const [messages, setMessages] = useState([])
@@ -55,7 +62,7 @@ const Dashboard = () => {
     const [guestQuestionCount, setGuestQuestionCount] =
         useState(() => {
             return Number(
-                localStorage.getItem(
+                sessionStorage.getItem(
                     'guestQuestionCount'
                 ) || 0
             )
@@ -66,6 +73,13 @@ const Dashboard = () => {
     // Check whether guest has reached limit
     const guestLimitReached =
         !user && guestQuestionCount >= 2
+
+    useEffect(() => {
+        if (user) {
+            sessionStorage.removeItem('guestQuestionCount')
+            setGuestQuestionCount(0)
+        }
+    }, [user])
 
     // Socket connection
     useEffect(() => {
@@ -110,6 +124,7 @@ const Dashboard = () => {
         setCurrentChatId(null)
         setMessages([])
         setMessage('')
+        setSelectedImage(null)
         setChatError('')
     }
 
@@ -129,6 +144,7 @@ const Dashboard = () => {
                     id: item._id,
                     role: item.role,
                     content: item.content,
+                    image: item.image,
                 }))
             )
         } catch (error) {
@@ -155,21 +171,47 @@ const Dashboard = () => {
 
     // File selected
     const handleFileChange = (event) => {
-        if (event.target.files?.length) {
-            console.log(
-                'Selected files:',
-                event.target.files
-            )
+        const file = event.target.files?.[0]
+        event.target.value = ''
+
+        if (!file) {
+            return
         }
 
-        event.target.value = ''
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+            setChatError('Choose a PNG, JPEG, or WebP image.')
+            return
+        }
+
+        if (file.size > 4 * 1024 * 1024) {
+            setChatError('Images must be 4 MB or smaller.')
+            return
+        }
+
+        const reader = new FileReader()
+        reader.onload = () => {
+            if (typeof reader.result === 'string') {
+                setSelectedImage({
+                    name: file.name,
+                    dataUrl: reader.result,
+                })
+                setChatError('')
+            }
+        }
+        reader.onerror = () => {
+            setChatError('Could not read that image.')
+        }
+        reader.readAsDataURL(file)
     }
 
     // Send message
     const handleSendMessage = async (event) => {
         event.preventDefault()
 
-        const content = message.trim()
+        const image = selectedImage?.dataUrl || ''
+        const content =
+            message.trim() ||
+            (image ? 'What is in this image?' : '')
 
         if (!content || isSending) {
             return
@@ -193,6 +235,7 @@ const Dashboard = () => {
                 id: userMessageId,
                 role: 'user',
                 content,
+                image,
             },
             {
                 id: assistantMessageId,
@@ -209,6 +252,7 @@ const Dashboard = () => {
             const result = await sendMessage({
                 message: content,
                 chatId: currentChatId,
+                image,
 
                 // Receive streamed AI tokens
                 onToken: (token) => {
@@ -227,6 +271,8 @@ const Dashboard = () => {
                 },
             })
 
+            setSelectedImage(null)
+
             // Increase guest question count
             if (!user) {
                 const newCount =
@@ -234,7 +280,7 @@ const Dashboard = () => {
 
                 setGuestQuestionCount(newCount)
 
-                localStorage.setItem(
+                sessionStorage.setItem(
                     'guestQuestionCount',
                     newCount.toString()
                 )
@@ -280,6 +326,7 @@ const Dashboard = () => {
                 error.message ||
                     'Could not send your message.'
             )
+            setMessage(content)
 
             // Remove empty AI message if request failed
             setMessages((current) =>
@@ -298,17 +345,19 @@ const Dashboard = () => {
     const canSendMessage =
         message.trim().length > 0 &&
         !guestLimitReached
+    const filteredChats = chats.filter((chat) =>
+        (chat.title || 'New chat')
+            .toLowerCase()
+            .includes(chatSearch.trim().toLowerCase())
+    )
 
     return (
         <main className="min-h-screen bg-black text-white">
 
-            {/* Background */}
-            <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(217,70,239,0.16),transparent_32%),radial-gradient(circle_at_85%_85%,rgba(236,72,153,0.13),transparent_30%)]" />
-
             <div className="relative flex min-h-screen flex-col">
 
                 {/* HEADER */}
-                <header className="flex items-center justify-between border-b border-fuchsia-900/30 bg-zinc-950/90 px-4 py-3 backdrop-blur-xl">
+                <header className="flex items-center justify-between border-b border-neutral-800 bg-black px-4 py-3">
 
                     <div className="flex items-center gap-3">
 
@@ -321,15 +370,15 @@ const Dashboard = () => {
                                         !current
                                 )
                             }
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-fuchsia-800/50 bg-zinc-900 text-lg text-fuchsia-400 shadow-lg shadow-fuchsia-950/20 transition hover:border-fuchsia-500 hover:bg-fuchsia-950/30"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-lg text-white transition hover:border-white hover:bg-neutral-800"
                         >
                             ☰
                         </button>
 
                         {/* Logo */}
-                        <div className="flex items-center gap-2 rounded-full border border-fuchsia-800/50 bg-zinc-900 px-3 py-1.5 text-base font-medium text-white shadow-lg shadow-fuchsia-950/20">
+                        <div className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-base font-medium text-white">
 
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-pink-500 text-[10px] font-bold text-white">
+                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-black">
                                 C
                             </span>
 
@@ -344,7 +393,7 @@ const Dashboard = () => {
                             type="button"
                             onClick={startNewChat}
                             aria-label="New chat"
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-fuchsia-800/50 bg-zinc-900 text-xl text-fuchsia-400 shadow-lg shadow-fuchsia-950/20 transition hover:border-fuchsia-500 hover:bg-fuchsia-950/30"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-xl text-white transition hover:border-white hover:bg-neutral-800"
                         >
                             ⟳
                         </button>
@@ -356,7 +405,7 @@ const Dashboard = () => {
                                 onClick={() =>
                                     navigate('/login')
                                 }
-                                className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-fuchsia-900/30 transition hover:scale-105"
+                                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
                             >
                                 Login
                             </button>
@@ -364,7 +413,7 @@ const Dashboard = () => {
 
                         <button
                             type="button"
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-fuchsia-800/50 bg-zinc-900 text-xl text-fuchsia-400 shadow-lg shadow-fuchsia-950/20 transition hover:border-fuchsia-500 hover:bg-fuchsia-950/30"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-xl text-white transition hover:border-white hover:bg-neutral-800"
                         >
                             ⌁
                         </button>
@@ -375,18 +424,34 @@ const Dashboard = () => {
 
                     {/* SIDEBAR */}
                     {isSidebarOpen && (
-                        <aside className="w-[300px] border-r border-fuchsia-900/30 bg-zinc-950/90 px-4 py-4 backdrop-blur-xl">
+                        <aside className="w-75 border-r border-neutral-800 bg-black px-4 py-4">
 
-                            <div className="mb-4 flex items-center gap-3 rounded-2xl border border-fuchsia-900/30 bg-fuchsia-950/30 px-4 py-3 text-fuchsia-300">
-
-                                <span className="text-lg">
+                            <label className="mb-4 flex items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-3 text-white focus-within:border-white">
+                                <span aria-hidden="true" className="text-lg">
                                     ⌕
                                 </span>
+                                <input
+                                    type="search"
+                                    value={chatSearch}
+                                    onChange={(event) =>
+                                        setChatSearch(event.target.value)
+                                    }
+                                    aria-label="Search conversations"
+                                    placeholder="Search conversations"
+                                    className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+                                />
+                            </label>
 
-                                <span className="text-xl font-medium">
-                                    Search
+                            <button
+                                type="button"
+                                onClick={startNewChat}
+                                className="mb-4 flex w-full items-center gap-3 rounded-xl border border-neutral-600 bg-white px-4 py-3 text-left text-base font-semibold text-black transition hover:bg-neutral-200"
+                            >
+                                <span aria-hidden="true" className="text-xl">
+                                    +
                                 </span>
-                            </div>
+                                <span>New chat</span>
+                            </button>
 
                             <div className="space-y-3 pb-4">
 
@@ -406,8 +471,8 @@ const Dashboard = () => {
                                             className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-2xl font-medium transition ${
                                                 item.label ===
                                                 'Convo'
-                                                    ? 'bg-fuchsia-950/50 text-fuchsia-300'
-                                                    : 'text-zinc-300 hover:bg-fuchsia-950/30 hover:text-fuchsia-300'
+                                                    ? 'bg-neutral-800 text-white'
+                                                    : 'text-neutral-300 hover:bg-neutral-900 hover:text-white'
                                             }`}
                                         >
                                             <span className="w-8 text-center text-2xl">
@@ -435,7 +500,7 @@ const Dashboard = () => {
 
                                 <div className="space-y-2">
 
-                                    {chats.map(
+                                    {filteredChats.map(
                                         (chat) => (
                                             <button
                                                 type="button"
@@ -450,8 +515,8 @@ const Dashboard = () => {
                                                 className={`block w-full truncate rounded-lg px-2 py-2 text-left text-sm transition ${
                                                     currentChatId ===
                                                     chat._id
-                                                        ? 'bg-fuchsia-950/60 text-fuchsia-300'
-                                                        : 'text-zinc-400 hover:bg-fuchsia-950/30 hover:text-fuchsia-300'
+                                                        ? 'bg-neutral-800 text-white'
+                                                        : 'text-neutral-400 hover:bg-neutral-900 hover:text-white'
                                                 }`}
                                             >
                                                 {chat.title ||
@@ -468,6 +533,12 @@ const Dashboard = () => {
                                                 : 'Login to save your conversations.'}
                                         </p>
                                     )}
+                                    {chats.length > 0 &&
+                                        filteredChats.length === 0 && (
+                                            <p className="px-2 text-sm text-zinc-500">
+                                                No conversations match your search.
+                                            </p>
+                                        )}
                                 </div>
                             </div>
                         </aside>
@@ -482,20 +553,16 @@ const Dashboard = () => {
                             <div className="flex flex-1 flex-col items-center justify-center gap-5 px-4 pt-6">
 
                                 {/* Welcome Emoji */}
-                                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-600 to-pink-600 text-4xl shadow-xl shadow-fuchsia-500/30">
+                                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-900 text-4xl">
                                     😊
                                 </div>
 
                                 <div className="text-center">
 
                                     <h1 className="text-5xl font-medium tracking-tight text-white">
-                                        Welcome Back,{' '}
                                         {user
-                                            ? getDisplayName(
-                                                  user
-                                              )
-                                            : 'User'}
-                                        !
+                                            ? `Welcome Back, ${getDisplayName(user)}!`
+                                            : 'Convo'}
                                     </h1>
 
                                     <p className="mt-3 text-2xl text-zinc-400">
@@ -508,7 +575,7 @@ const Dashboard = () => {
 
                                     {/* Guest counter */}
                                     {!user && (
-                                        <p className="mt-4 text-sm text-fuchsia-400">
+                                        <p className="mt-4 text-sm text-white">
                                             {guestQuestionCount <
                                             2
                                                 ? `${
@@ -539,10 +606,17 @@ const Dashboard = () => {
                                             className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-base ${
                                                 item.role ===
                                                 'user'
-                                                    ? 'ml-auto bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-lg shadow-fuchsia-950/30'
-                                                    : 'mr-auto border border-fuchsia-900/30 bg-zinc-900/90 text-zinc-200 shadow-lg shadow-black/20'
+                                                    ? 'ml-auto border border-neutral-700 bg-neutral-800 text-white'
+                                                    : 'mr-auto border border-neutral-800 bg-neutral-900 text-white'
                                             }`}
                                         >
+                                            {item.image && (
+                                                <img
+                                                    src={item.image}
+                                                    alt="Image attached to this message"
+                                                    className="mb-2 max-h-72 max-w-full rounded-lg object-contain"
+                                                />
+                                            )}
                                             {item.content ||
                                                 (isSending
                                                     ? 'Thinking...'
@@ -553,7 +627,7 @@ const Dashboard = () => {
 
                                 {/* Login message */}
                                 {guestLimitReached && (
-                                    <div className="mx-auto mt-4 w-full max-w-xl rounded-2xl border border-fuchsia-700/40 bg-gradient-to-r from-fuchsia-950/50 to-pink-950/40 p-5 text-center shadow-xl shadow-fuchsia-950/20">
+                                    <div className="mx-auto mt-4 w-full max-w-xl rounded-2xl border border-neutral-700 bg-neutral-900 p-5 text-center">
 
                                         <div className="mb-2 text-2xl">
                                             🔒
@@ -564,7 +638,7 @@ const Dashboard = () => {
                                             reached
                                         </h3>
 
-                                        <p className="mt-2 text-sm text-zinc-400">
+                                        <p className="mt-2 text-sm text-neutral-300">
                                             You have used
                                             your 2 free
                                             questions.
@@ -581,7 +655,7 @@ const Dashboard = () => {
                                                     '/login'
                                                 )
                                             }
-                                            className="mt-4 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 px-6 py-2.5 font-semibold text-white shadow-lg shadow-fuchsia-900/30 transition hover:scale-105"
+                                            className="mt-4 rounded-xl bg-white px-6 py-2.5 font-semibold text-black transition hover:bg-neutral-200"
                                         >
                                             Login to
                                             Continue
@@ -592,16 +666,16 @@ const Dashboard = () => {
                         )}
 
                         {/* INPUT */}
-                        <div className="px-4 pb-6">
+                        <div className="px-4 pb-10">
 
-                            <div className="mx-auto max-w-5xl rounded-3xl border border-fuchsia-900/40 bg-zinc-950/90 p-3 shadow-2xl shadow-fuchsia-950/30 backdrop-blur-xl">
+                            <div className="mx-auto max-w-5xl rounded-2xl border border-neutral-700 bg-neutral-950 px-3 pt-3 pb-1">
 
                                 {/* Chat error */}
                                 {chatError &&
                                     !guestLimitReached && (
                                         <p
                                             role="alert"
-                                            className="px-3 pb-2 text-sm text-rose-400"
+                                            className="px-3 pb-2 text-sm text-white"
                                         >
                                             {
                                                 chatError
@@ -609,11 +683,32 @@ const Dashboard = () => {
                                         </p>
                                     )}
 
+                                {selectedImage && (
+                                    <div className="mb-3 flex items-center gap-3 rounded-lg border border-neutral-800 bg-black p-2">
+                                        <img
+                                            src={selectedImage.dataUrl}
+                                            alt="Selected attachment preview"
+                                            className="h-14 w-14 rounded object-cover"
+                                        />
+                                        <span className="min-w-0 flex-1 truncate text-sm text-neutral-300">
+                                            {selectedImage.name}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedImage(null)}
+                                            aria-label="Remove attached image"
+                                            className="flex h-8 w-8 items-center justify-center rounded text-lg text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                )}
+
                                 <form
                                     onSubmit={
                                         handleSendMessage
                                     }
-                                    className="flex items-center gap-3 rounded-2xl border border-fuchsia-900/30 bg-zinc-900/80 px-3 py-3 shadow-inner shadow-black"
+                                    className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-black px-3 py-3"
                                 >
 
                                     <div className="flex-1">
@@ -641,7 +736,7 @@ const Dashboard = () => {
 
                                     </div>
 
-                                    <div className="flex items-center gap-2 text-fuchsia-400">
+                                    <div className="flex items-center gap-2 text-white">
 
                                         {/* FILE INPUT */}
                                         <input
@@ -649,6 +744,7 @@ const Dashboard = () => {
                                                 fileInputRef
                                             }
                                             type="file"
+                                            accept="image/png,image/jpeg,image/webp"
                                             multiple
                                             className="hidden"
                                             onChange={
@@ -663,9 +759,10 @@ const Dashboard = () => {
                                                 handleOpenFiles
                                             }
                                             disabled={
-                                                guestLimitReached
+                                                guestLimitReached ||
+                                                isSending
                                             }
-                                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-fuchsia-800/50 bg-zinc-900 text-xl text-fuchsia-400 shadow-sm transition hover:border-fuchsia-500 hover:bg-fuchsia-950/30 disabled:cursor-not-allowed disabled:opacity-40"
+                                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-700 bg-neutral-900 text-xl text-white transition hover:border-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
                                         >
                                             ＋
                                         </button>
@@ -681,8 +778,8 @@ const Dashboard = () => {
                                             className={`flex h-10 w-10 items-center justify-center rounded-full text-xl shadow-lg transition ${
                                                 canSendMessage &&
                                                 !isSending
-                                                    ? 'bg-gradient-to-br from-fuchsia-600 to-pink-600 text-white shadow-fuchsia-500/30 hover:scale-105'
-                                                    : 'bg-zinc-900 text-fuchsia-900'
+                                                    ? 'bg-white text-black hover:bg-neutral-200'
+                                                    : 'bg-neutral-900 text-neutral-600'
                                             }`}
                                         >
                                             {isSending
@@ -692,19 +789,27 @@ const Dashboard = () => {
                                     </div>
                                 </form>
 
-                                {/* Guest counter below input */}
-                                {!user &&
-                                    !guestLimitReached && (
-                                        <p className="mt-2 text-center text-xs text-zinc-600">
-                                            {
-                                                2 -
-                                                guestQuestionCount
-                                            }{' '}
-                                            free questions
-                                            remaining
-                                        </p>
-                                    )}
                             </div>
+
+                            {!user && !guestLimitReached && (
+                                <div className="mx-auto max-w-5xl">
+                                    <p className="mt-1 text-center text-xs text-neutral-400">
+                                        {2 - guestQuestionCount} free questions remaining
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                        {suggestedPrompts.map((prompt) => (
+                                            <button
+                                                key={prompt}
+                                                type="button"
+                                                onClick={() => setMessage(prompt)}
+                                                className="rounded-full border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition hover:border-white hover:text-white"
+                                            >
+                                                {prompt}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </main>
                 </div>
