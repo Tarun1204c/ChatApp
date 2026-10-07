@@ -36,7 +36,7 @@ const Register = () => {
   }
 
   const handleGoogleSignup = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3000')
     window.location.assign(`${apiUrl}/api/auth/google`)
   }
 
